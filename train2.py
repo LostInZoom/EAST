@@ -15,8 +15,8 @@ from keras.utils import plot_model
 from keras.optimizers import Adam, SGD
 import keras.backend as K
 
-from adamw import AdamW
-#from keras_adamw import AdamW
+#from adamw import AdamW
+from keras_adamw import AdamW
 
 from model import EAST_model
 from losses import dice_loss, rbox_loss
@@ -29,7 +29,7 @@ parser.add_argument('--nb_workers', type=int, default=4) # number of processes t
 parser.add_argument('--init_learning_rate', type=float, default=0.0001) # initial learning rate
 parser.add_argument('--lr_decay_rate', type=float, default=0.94) # decay rate for the learning rate
 parser.add_argument('--lr_decay_steps', type=int, default=130) # number of steps after which the learning rate is decayed by decay rate
-parser.add_argument('--max_epochs', type=int, default=800) # maximum number of epochs
+parser.add_argument('--max_epochs', type=int, default=3) # maximum number of epochs
 parser.add_argument('--gpu_list', type=str, default='0') # list of gpus to use
 parser.add_argument('--checkpoint_path', type=str, default='tmp/east_resnet_50_rbox') # path to a directory to save model checkpoints during training
 parser.add_argument('--save_checkpoint_epochs', type=int, default=10) # period at which checkpoints are saved (defaults to every 10 epochs)
@@ -198,6 +198,66 @@ def lr_decay(epoch):
 
 
 
+# def main_old(argv=None):
+#     os.environ['CUDA_VISIBLE_DEVICES'] = FLAGS.gpu_list
+
+#     # check if checkpoint path exists
+#     if not os.path.exists(FLAGS.checkpoint_path):
+#         os.mkdir(FLAGS.checkpoint_path)
+#     else:
+#         #if not FLAGS.restore:
+#         #    shutil.rmtree(FLAGS.checkpoint_path)
+#         #    os.mkdir(FLAGS.checkpoint_path)
+#         shutil.rmtree(FLAGS.checkpoint_path)
+#         os.mkdir(FLAGS.checkpoint_path)
+
+#     train_data_generator = data_processor.generator(FLAGS)
+#     train_samples_count = data_processor.count_samples(FLAGS)
+
+#     val_data = data_processor.load_data(FLAGS)
+
+#     if len(gpus) <= 1:
+#         print('Training with 1 GPU')
+#         east = EAST_model(FLAGS.input_size)
+#         if FLAGS.restore_model is not '':
+#             east.model.load_weights(FLAGS.restore_model)
+#             print(f'weights loaded from {FLAGS.restore_model}')
+#         parallel_model = east.model
+#     else:
+#         print('Training with %d GPUs' % len(gpus))
+#         with tf.device("/cpu:0"):
+#             east = EAST_model(FLAGS.input_size)
+#         if FLAGS.restore_model is not '':
+#             east.model.load_weights(FLAGS.restore_model)
+#         parallel_model = multi_gpu_model(east.model, gpus=len(gpus))
+
+#     score_map_loss_weight = K.variable(0.01, name='score_map_loss_weight')
+
+#     small_text_weight = K.variable(0., name='small_text_weight')
+
+#     lr_scheduler = LearningRateScheduler(lr_decay)
+#     ckpt = CustomModelCheckpoint(model=east.model, path=FLAGS.checkpoint_path + '/model-{epoch:02d}.h5', period=FLAGS.save_checkpoint_epochs, save_weights_only=True)
+#     tb = CustomTensorBoard(log_dir=FLAGS.checkpoint_path + '/train', score_map_loss_weight=score_map_loss_weight, small_text_weight=small_text_weight, data_generator=train_data_generator, write_graph=True)
+#     small_text_weight_callback = SmallTextWeight(small_text_weight)
+#     validation_evaluator = ValidationEvaluator(val_data, validation_log_dir=FLAGS.checkpoint_path + '/val')
+#     callbacks = [lr_scheduler, ckpt, tb, small_text_weight_callback, validation_evaluator]
+
+#     opt = AdamW(FLAGS.init_learning_rate)
+
+#     parallel_model.compile(loss=[dice_loss(east.overly_small_text_region_training_mask, east.text_region_boundary_training_mask, score_map_loss_weight, small_text_weight),
+#                                  rbox_loss(east.overly_small_text_region_training_mask, east.text_region_boundary_training_mask, small_text_weight, east.target_score_map)],
+#                            loss_weights=[1., 1.],
+#                            optimizer=opt)
+#     east.model.summary()
+
+#     model_json = east.model.to_json()
+#     with open(FLAGS.checkpoint_path + '/model.json', 'w') as json_file:
+#         json_file.write(model_json)
+
+#     history = parallel_model.fit_generator(train_data_generator, epochs=FLAGS.max_epochs, steps_per_epoch=train_samples_count/FLAGS.batch_size, workers=FLAGS.nb_workers, use_multiprocessing=True, max_queue_size=10, callbacks=callbacks, verbose=1)
+#     parallel_model.save('my_model_test.h5')
+#     print(history)
+
 def main(argv=None):
     os.environ['CUDA_VISIBLE_DEVICES'] = FLAGS.gpu_list
 
@@ -219,6 +279,9 @@ def main(argv=None):
     if len(gpus) <= 1:
         print('Training with 1 GPU')
         east = EAST_model(FLAGS.input_size)
+        if FLAGS.restore_model is not '':
+            east.model.load_weights(FLAGS.restore_model)
+            print(f'weights loaded from {FLAGS.restore_model}')
         parallel_model = east.model
     else:
         print('Training with %d GPUs' % len(gpus))
@@ -226,6 +289,7 @@ def main(argv=None):
             east = EAST_model(FLAGS.input_size)
         if FLAGS.restore_model is not '':
             east.model.load_weights(FLAGS.restore_model)
+            print(f'weights loaded from {FLAGS.restore_model}')
         parallel_model = multi_gpu_model(east.model, gpus=len(gpus))
 
     score_map_loss_weight = K.variable(0.01, name='score_map_loss_weight')
@@ -234,24 +298,30 @@ def main(argv=None):
 
     lr_scheduler = LearningRateScheduler(lr_decay)
     ckpt = CustomModelCheckpoint(model=east.model, path=FLAGS.checkpoint_path + '/model-{epoch:02d}.h5', period=FLAGS.save_checkpoint_epochs, save_weights_only=True)
-    tb = CustomTensorBoard(log_dir=FLAGS.checkpoint_path + '/train', score_map_loss_weight=score_map_loss_weight, small_text_weight=small_text_weight, data_generator=train_data_generator, write_graph=True)
+    chkpt_std = ModelCheckpoint('./east_test_american.h5', monitor='loss',verbose=1, save_best_only=True)
+    #tb = CustomTensorBoard(log_dir=FLAGS.checkpoint_path + '/train', score_map_loss_weight=score_map_loss_weight, small_text_weight=small_text_weight, data_generator=train_data_generator, write_graph=True)
     small_text_weight_callback = SmallTextWeight(small_text_weight)
     validation_evaluator = ValidationEvaluator(val_data, validation_log_dir=FLAGS.checkpoint_path + '/val')
-    callbacks = [lr_scheduler, ckpt, tb, small_text_weight_callback, validation_evaluator]
+    #callbacks = [lr_scheduler, ckpt, tb, small_text_weight_callback, validation_evaluator]
+    callbacks = [lr_scheduler, chkpt_std, small_text_weight_callback]
+
 
     opt = AdamW(FLAGS.init_learning_rate)
 
     parallel_model.compile(loss=[dice_loss(east.overly_small_text_region_training_mask, east.text_region_boundary_training_mask, score_map_loss_weight, small_text_weight),
                                  rbox_loss(east.overly_small_text_region_training_mask, east.text_region_boundary_training_mask, small_text_weight, east.target_score_map)],
                            loss_weights=[1., 1.],
-                           optimizer=opt)
+                           optimizer=opt, metrics=['accuracy'])
     east.model.summary()
 
     model_json = east.model.to_json()
     with open(FLAGS.checkpoint_path + '/model.json', 'w') as json_file:
         json_file.write(model_json)
 
-    history = parallel_model.fit_generator(train_data_generator, epochs=FLAGS.max_epochs, steps_per_epoch=train_samples_count/FLAGS.batch_size, workers=FLAGS.nb_workers, use_multiprocessing=True, max_queue_size=10, callbacks=callbacks, verbose=1)
+    history = parallel_model.fit_generator(train_data_generator, epochs=FLAGS.max_epochs, steps_per_epoch=train_samples_count/FLAGS.batch_size, workers=FLAGS.nb_workers, use_multiprocessing=False, max_queue_size=10, callbacks=callbacks, verbose=1)
+    parallel_model.save('model_tuned.h5')
+
+
 
 if __name__ == '__main__':
     main()
