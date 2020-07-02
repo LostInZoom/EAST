@@ -68,7 +68,7 @@ def resize_image(im, max_side_len=2400):
     return im, (ratio_h, ratio_w)
 
 
-def detect(score_map, geo_map, timer, score_map_thresh=0.8, box_thresh=0.1, nms_thres=0.2):
+def detect(score_map, geo_map, timer, score_map_thresh=0.8, box_thresh=0.1, nms_thres=0.2, paper_method=True):
     '''
     restore text boxes from score map and geo map
     :param score_map:
@@ -104,11 +104,12 @@ def detect(score_map, geo_map, timer, score_map_thresh=0.8, box_thresh=0.1, nms_
         return None, timer
 
     # here we filter some low score boxes by the average score map, this is different from the orginal paper
-    for i, box in enumerate(boxes):
-        mask = np.zeros_like(score_map, dtype=np.uint8)
-        cv2.fillPoly(mask, box[:8].reshape((-1, 4, 2)).astype(np.int32) // 4, 1)
-        boxes[i, 8] = cv2.mean(score_map, mask)[0]
-    boxes = boxes[boxes[:, 8] > box_thresh]
+    if not paper_method:
+        for i, box in enumerate(boxes):
+            mask = np.zeros_like(score_map, dtype=np.uint8)
+            cv2.fillPoly(mask, box[:8].reshape((-1, 4, 2)).astype(np.int32) // 4, 1)
+            boxes[i, 8] = cv2.mean(score_map, mask)[0]
+        boxes = boxes[boxes[:, 8] > box_thresh]
 
     return boxes, timer
 
@@ -123,6 +124,8 @@ def sort_poly(p):
 
 
 def main(argv=None):
+    SCORE_THRESH = 0.3
+    PAPER_METHOD = True
     import os
     os.environ['CUDA_VISIBLE_DEVICES'] = FLAGS.gpu_list
 
@@ -155,7 +158,7 @@ def main(argv=None):
 
         timer['net'] = time.time() - start
 
-        boxes, timer = detect(score_map=score_map, geo_map=geo_map, timer=timer)
+        boxes, timer = detect(score_map=score_map, geo_map=geo_map, timer=timer, score_map_thresh=SCORE_THRESH, paper_method=PAPER_METHOD)
         print('{} : net {:.0f}ms, restore {:.0f}ms, nms {:.0f}ms'.format(
             img_file, timer['net']*1000, timer['restore']*1000, timer['nms']*1000))
 

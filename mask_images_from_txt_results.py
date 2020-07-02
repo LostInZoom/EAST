@@ -5,15 +5,9 @@ import numpy as np
 import cv2
 
 
-# rac = 'cassini_25'
-# testfile = f'../EAST/mask5/{rac}.txt'
-# testfile2 = f'../EAST/mask5c/{rac}_niblack_.txt'
-# testfile3 = f'../EAST/mask5c/{rac}_sauvola_.txt'
-# testimg = f'./res2/{rac}.jpg'
-
-images_dir = './mask8ep'
-rects_dir  = './mask8ep'
-result_dir = './res8'
+images_dir = '../../wms_grid_gen/tiles'
+rects_dir  = './txt_rects'
+result_dir = './mask6epc'
 
 def get_rectangles(txtfile):
     r = []
@@ -24,14 +18,18 @@ def get_rectangles(txtfile):
     #print(r)
     return r
 
-def add_masques(image_path, rectangles, alpha=0.75):
+#color au format BGR
+def add_masques(image_path, rectangles, alpha=0.75, color=(0,0,0)):
     image = cv2.imread(image_path)
     orig = image.copy()
     for r in rectangles:
-        cv2.fillPoly(image, [r], 1, 255)
+        #cv2.fillPoly(image, [r], 1, 255)
+        cv2.fillPoly(image, [r], color)
     image_new = cv2.addWeighted(image, alpha, orig, 1 - alpha, 0)
     return image_new
 
+# on surimpose aux fichiers jpg contenus dans images_dir les rectangles issus du detecteur EAST qui sont dans des txt
+# dans rects_dir en se basant sur le début des noms de fichiers
 def mask_combine(images_dir, rects_dir, result_dir):
     onlyfiles = [f for f in os.listdir(images_dir) if os.path.isfile(os.path.join(images_dir, f)) and f.endswith('jpg')]
     rect_files = [f for f in os.listdir(rects_dir) if os.path.isfile(os.path.join(rects_dir, f)) and f.endswith('txt')]
@@ -48,15 +46,4 @@ def mask_combine(images_dir, rects_dir, result_dir):
         im = add_masques(f'{images_dir}/{f}', r)
         cv2.imwrite(f'{result_dir}/{motif}_masked.jpg', im)
 
-        
-    #print(rect_files)
-
-
-
-#r = get_rectangles(testfile)
-# r = np.concatenate((get_rectangles(testfile), get_rectangles(testfile2)))
-# r = np.concatenate((r, get_rectangles(testfile3)))
-# im = add_masques(testimg, r)
-# cv2.imwrite(f'{rac}.jpg', im)
 mask_combine(images_dir, rects_dir, result_dir)
-#print(type(r))
