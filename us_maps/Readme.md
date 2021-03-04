@@ -1,0 +1,2 @@
+Script qui sert à découper les cartes US (tiff) et leurs fichiers json associés (de localisation du texte) en imagettes de tailles HEIGHTxWIDTH accompagnés de leurs fichiers texte de localisation de textes, au format ICDAR.
+ 
