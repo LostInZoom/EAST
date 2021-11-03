@@ -7,6 +7,7 @@ from shapely.geometry import Polygon, shape
 from shapely.strtree import STRtree
 import fiona
 import rasterio
+import pathlib
 from rasterio.windows import Window
 
 def translate_coords(new_x_origin, new_y_origin, coords):
@@ -16,11 +17,13 @@ W, H = 512, 512 # 1280, 720 # taille de l'imagette à découper
 OVERLAP = 0 # 1/3 # recouvrement entre imagettes
 INTERSECTING_RATIO = 0.05 # pourcentage minimale d'intersection d'une boite de texte avec l'image pour prise en compte
 
-PREFIX = '' #'r4_r10' #'r1_r3' 
-tiff_file = "/home/mac/hdd/mac/work/donnees_julien/cassini_bnf_52.tif"
+PREFIX = '' #'r4_r10' #'r1_r3'
+savedir = pathlib.Path('./output_512/')
+savedir.mkdir(parents=True,exist_ok=True)
+tiff_file = "/home/JBerli/Documents/Programmation/data/east/cassini_bnf_52.tif"
 #tiff_file = f"extract_{PREFIX}.tif"
-text_boxes = "merged_partially_corrected2.geojson"
-output_path = f'./out_512_part_corr' #f'./out_512_extracts_r1_r3_9_rec' # f'./out_512_partially_corrected' # f'./out_512_extracts_rec'
+text_boxes = "/home/JBerli/Documents/Programmation/data/east/merged_partially_corrected3.geojson"
+output_path = f'./output_512' #f'./out_512_extracts_r1_r3_9_rec' # f'./out_512_partially_corrected' # f'./out_512_extracts_rec'
 
 boxes = fiona.open(text_boxes, 'r')
 boxes = [b for b in boxes if b is not None]
