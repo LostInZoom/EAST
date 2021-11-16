@@ -5,18 +5,17 @@ import shutil
 import numpy as np
 from PIL import Image
 import tensorflow as tf
+import tensorflow_addons as tfa
 import argparse
 from keras.callbacks import LearningRateScheduler, TensorBoard, ModelCheckpoint, Callback
-try:
-    from keras.utils.training_utils import multi_gpu_model
-except ImportError:
-    from keras.utils.multi_gpu_utils import multi_gpu_model
-from keras.utils import plot_model
-from keras.optimizers import Adam, SGD
+# try:
+#     from keras.utils.training_utils import multi_gpu_model
+# except ImportError:
+# from keras.utils.multi_gpu_utils import multi_gpu_model
+from tensorflow.keras.utils import plot_model
+# from keras.optimizers import Adam, SGD
+from tensorflow_addons.optimizers import AdamW
 import keras.backend as K
-
-#from adamw import AdamW
-from keras_adamw import AdamW
 
 from model import EAST_model
 from losses import dice_loss, rbox_loss
@@ -279,7 +278,7 @@ def main(argv=None):
     if len(gpus) <= 1:
         print('Training with 1 GPU')
         east = EAST_model(FLAGS.input_size)
-        if FLAGS.restore_model is not '':
+        if FLAGS.restore_model != '':
             east.model.load_weights(FLAGS.restore_model)
             print(f'weights loaded from {FLAGS.restore_model}')
         parallel_model = east.model
@@ -287,7 +286,7 @@ def main(argv=None):
         print('Training with %d GPUs' % len(gpus))
         with tf.device("/cpu:0"):
             east = EAST_model(FLAGS.input_size)
-        if FLAGS.restore_model is not '':
+        if FLAGS.restore_model != '':
             east.model.load_weights(FLAGS.restore_model)
             print(f'weights loaded from {FLAGS.restore_model}')
         parallel_model = multi_gpu_model(east.model, gpus=len(gpus))
